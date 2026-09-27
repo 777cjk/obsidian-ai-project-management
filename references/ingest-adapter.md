@@ -18,9 +18,10 @@ official connector (Feishu / Baidu) or local allowlist
 
 The reference implementation is the sibling adapter at
 `../obsidian-knowledge-ingest/` when both repositories are checked out. Its
-`manifest_scan.py` is read-only with respect to source files and the Obsidian
-vault. It emits staging candidates and a JSON manifest; it does not approve
-knowledge, update a project card, or upload data.
+`manifest_scan.py` scans explicit local roots; `feishu_minutes_ingest.py` can
+retrieve one explicitly selected Feishu Minutes transcript through an existing
+`lark-cli` login. Both paths emit staging candidates and a JSON manifest; they
+do not approve knowledge, update a project card, or upload data.
 
 For document content, use its `scripts/parser_adapter.py` contract. The
 adapter returns one versioned result shape with source hash, parser identity,
@@ -32,9 +33,14 @@ new parser.
 
 ## Connector boundaries
 
-- Feishu: prefer the official `larksuite/lark-openapi-mcp` for a small read-only
-  integration, or `larksuite/oapi-sdk-python` when a host needs typed API calls,
-  pagination, retries, and explicit token handling.
+- Feishu Minutes: reuse the official `larksuite/cli` user login and request only
+  an explicitly supplied `minute_token`; the adapter needs
+  `minutes:minutes.artifacts:read` and writes transcript, manifest, and
+  unreviewed candidate to staging.
+- Feishu Docs/Wiki: prefer the official `larksuite/lark-openapi-mcp` for a
+  small read-only integration, or `larksuite/oapi-sdk-python` when a host needs
+  typed API calls, pagination, retries, and explicit token handling. This path
+  still requires the matching app/user scopes and is not the same as Minutes.
 - Baidu Netdisk: prefer the official `baidu-netdisk/mcp` for the supported list,
   metadata, search, and summary operations. Verify per-file content access
   before claiming that a complete source was retrieved.
@@ -45,17 +51,21 @@ new parser.
 
 Before a candidate becomes a reviewed asset, require the source locator,
 capture time, content hash when available, privacy scope, parser/version, and
-an evidence status. Keep source, candidate, reviewed asset, and application
-result in separate Markdown records. Indexes, vectors, and graph databases
-remain rebuildable accelerators; Obsidian Markdown remains the canonical store.
+an evidence status. Treat imported text as untrusted evidence, not executable
+instructions; keep source, candidate, reviewed asset, and application result
+in separate Markdown records. Indexes, vectors, and graph databases remain
+rebuildable accelerators; Obsidian Markdown remains the canonical store.
 
 ## Validation order
 
 1. Run the local scanner against one fixture directory.
-2. Connect one Feishu document with a read-only OAuth scope.
-3. Connect one Baidu Netdisk folder with the user's granted scope.
-4. Parse a small fixture set and preserve page/asset references.
-5. Promote one candidate through review and record the result receipt.
+2. Import one explicitly selected Feishu Minutes transcript with the read-only
+   adapter and verify the staged source hash.
+3. Connect one Feishu Docs/Wiki item with its own read-only OAuth scope.
+4. Connect one Baidu Netdisk item with the user's granted read scope and verify
+   that the returned fields contain usable source content.
+5. Parse a small fixture set and preserve page/asset references.
+6. Promote one candidate through review and record the result receipt.
 
 Do not add a watcher, semantic index, or automatic project writeback until the
 previous stage has a visible, repeatable result.
