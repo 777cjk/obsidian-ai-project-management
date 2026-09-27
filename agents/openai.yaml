@@ -1,0 +1,4 @@
+interface:
+  display_name: "Obsidian AI Project Management"
+  short_description: "Canonical Obsidian project context for AI work"
+  default_prompt: "Use this skill to continue or structure an Obsidian-backed AI project."

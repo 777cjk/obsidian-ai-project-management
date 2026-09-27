@@ -1,0 +1,40 @@
+name: Verify Skill
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install validator dependency
+        run: python -m pip install PyYAML==6.0.3
+
+      - name: Fetch pinned Agent Skills validator
+        env:
+          VALIDATOR_REVISION: 33375500bcea98d610eb30ce10ac4e59b89c390d
+          VALIDATOR_SHA256: 67cf5703402013936c8fb75ad6a1afecd8841d45cc5e606b634eb05825fde365
+        run: |
+          validator="$RUNNER_TEMP/quick_validate.py"
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/anthropics/skills/${VALIDATOR_REVISION}/skills/skill-creator/scripts/quick_validate.py" \
+            --output "$validator"
+          printf '%s  %s\n' "$VALIDATOR_SHA256" "$validator" | sha256sum --check
+          echo "SKILL_VALIDATOR=$validator" >> "$GITHUB_ENV"
+
+      - name: Verify package and Agent Skill format
+        run: scripts/verify.sh

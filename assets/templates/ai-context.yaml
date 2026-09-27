@@ -1,0 +1,18 @@
+context_version: 2
+project_card: "/path/to/vault/projects/<project>.md"
+owner_project: ""
+parent_project: null
+supporting_projects: []
+intent: ""
+primary_view: "producer"
+current_stage: "prepared"
+evidence_level: "planned"
+single_judgment: ""
+requested_artifact: ""
+artifact_path: ""
+acceptance:
+  pass: ""
+  fail: ""
+  stop: ""
+human_action: "none"
+writeback: "none"
