@@ -23,6 +23,7 @@ SCHEMA_VERSION = 1
 MAX_INPUT_BYTES = 2 * 1024 * 1024 * 1024
 DEFAULT_SELF_NAMES: set[str] = set()
 RECORD_KEYS = ("moments", "posts", "items", "data", "feeds", "entries")
+UNKNOWN_AUTHOR_LABELS = {"未知作者", "unknown", "unknown author", "n/a"}
 
 
 def sha256_file(path: Path) -> str:
@@ -86,6 +87,11 @@ def pick(record: dict[str, Any], fields: Iterable[str]) -> Any:
         if value not in (None, ""):
             return value
     return None
+
+
+def has_attributed_author(value: Any) -> bool:
+    author = str(value or "").strip()
+    return bool(author) and author.casefold() not in UNKNOWN_AUTHOR_LABELS
 
 
 def count_value(value: Any) -> int:
@@ -201,23 +207,20 @@ def normalize_records(
     ).strip()
     if default_author:
         self_names.add(default_author)
-    wrapper_is_moments = any(key in metadata for key in RECORD_KEYS)
     seen: set[str] = set()
     normalized: list[dict[str, Any]] = []
     duplicates = 0
 
     for raw in raw_records:
-        author = str(
-            pick(raw, ("author_name", "nickname", "author", "sender", "name"))
-            or default_author
-            or "未知作者"
-        ).strip()
+        raw_author = pick(raw, ("author_name", "nickname", "author", "sender", "name"))
+        raw_author_text = str(raw_author or "").strip()
+        author = raw_author_text or default_author or "未知作者"
+        author_attributed = has_attributed_author(raw_author_text or default_author)
         explicit_self = raw.get("is_self")
-        has_author_field = pick(raw, ("author_name", "nickname", "author", "sender", "name")) not in (None, "")
         is_self = (
-            truthy(explicit_self)
+            truthy(explicit_self) or (assume_self and not author_attributed)
             if explicit_self is not None
-            else author in self_names or assume_self or (wrapper_is_moments and not has_author_field)
+            else (author_attributed and author in self_names) or (assume_self and not author_attributed)
         )
         timestamp, datetime_text, time_confidence = parse_timestamp(
             pick(raw, ("timestamp", "create_time", "createTime", "publish_time", "post_time", "time", "date"))
@@ -442,7 +445,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--input", required=True, type=Path, help="已导出的 moments.json 或 Moments JSONL")
     parser.add_argument("--output-dir", required=True, type=Path, help="私有 staging 输出目录")
     parser.add_argument("--self-name", action="append", default=[], help="本人昵称，可重复传入")
-    parser.add_argument("--assume-self", action="store_true", help="输入不含作者字段时，将记录视为本人发布")
+    parser.add_argument(
+        "--assume-self",
+        action="store_true",
+        help="将作者缺失或未知的记录视为本人发布，仅适用于来源已确认的本人归档",
+    )
     parser.add_argument("--include-nonself", action="store_true", help="同时纳入导出中的其他作者")
     parser.add_argument("--title", default="朋友圈来源候选", help="候选 Markdown 标题")
     return parser

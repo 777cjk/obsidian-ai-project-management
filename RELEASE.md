@@ -1,6 +1,6 @@
-# obsidian-ai-project-management v0.2.1
+# obsidian-ai-project-management v0.2.2
 
-Version: `0.2.1` (`v0.2.1`).
+Version: `0.2.2` (`v0.2.2`).
 
 ## Included
 
@@ -20,6 +20,9 @@ Version: `0.2.1` (`v0.2.1`).
   bundling third-party extraction or decryption code.
 - Owner-only normalized output by default, explicit non-owner opt-in, and
   collision-safe staging that refuses to overwrite existing output files.
+- Unattributed records, including the companion bridge's `未知作者`
+  placeholder, are excluded by default. `--assume-self` applies only to
+  unattributed records and does not override known other authors.
 - Background synthesis instructions requiring dated record citations and a
   separate unreviewed knowledge candidate.
 - GitHub Actions checks for repository hygiene and Anthropic's pinned Agent

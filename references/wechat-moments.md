@@ -25,7 +25,10 @@ The adapter accepts either:
 The default scope is `self`. Pass `--include-nonself` only when the user
 explicitly wants other authors from the export included. If an export has no
 author field, use `--assume-self` only when its provenance is known to be the
-user's own archive.
+user's own archive. Unattributed records are excluded by default, including
+the `未知作者` placeholder emitted by the companion local archive bridge;
+`--assume-self` applies only to those unattributed records and never overrides
+a known other author.
 
 ## Quick start
 

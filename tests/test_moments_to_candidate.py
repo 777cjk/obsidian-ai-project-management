@@ -99,6 +99,42 @@ class MomentsCandidateTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("没有可纳入候选", result.stdout)
 
+    def test_unattributed_moments_require_assume_self(self):
+        payload = {"moments": [{"id": "unknown-1", "content": "synthetic unknown-author record"}]}
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "moments.json"
+            source.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+            excluded = self._run(source, root / "default-staging")
+            self.assertEqual(excluded.returncode, 2)
+            self.assertIn("没有可纳入候选", excluded.stdout)
+
+            included = self._run(source, root / "assumed-staging", "--assume-self")
+            self.assertEqual(included.returncode, 0, included.stderr)
+            summary = json.loads(included.stdout)
+            self.assertEqual(summary["records_included"], 1)
+            record = json.loads(
+                (root / "assumed-staging" / "moments.normalized.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()[0]
+            )
+            self.assertTrue(record["is_self"])
+
+    def test_assume_self_does_not_override_a_known_other_author(self):
+        payload = {
+            "moments": [
+                {"id": "other-1", "nickname": "朋友", "is_self": False, "content": "synthetic other-author record"}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "moments.json"
+            source.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            result = self._run(source, root / "staging", "--assume-self")
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("没有可纳入候选", result.stdout)
+
     def test_symlink_input_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
