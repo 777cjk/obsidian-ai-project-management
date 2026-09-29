@@ -58,6 +58,9 @@ When the task includes a user's own WeChat Moments archive, read
 staging files, and keeps the result unreviewed until a host checkpoint. It is
 an import layer, not a live WeChat reader or database decrypter; keep source
 acquisition and any platform-specific exporter outside this portable Skill.
+When the user asks for a background summary, create a separate unreviewed
+knowledge candidate with dated source-record citations; distinguish explicit
+self-statements from inferences and unknowns.
 
 ## Canonical Card Contract
 

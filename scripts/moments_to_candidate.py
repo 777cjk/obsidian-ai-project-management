@@ -21,7 +21,7 @@ from typing import Any, Iterable
 
 SCHEMA_VERSION = 1
 MAX_INPUT_BYTES = 2 * 1024 * 1024 * 1024
-DEFAULT_SELF_NAMES = {"我", "自己"}
+DEFAULT_SELF_NAMES: set[str] = set()
 RECORD_KEYS = ("moments", "posts", "items", "data", "feeds", "entries")
 
 
@@ -120,16 +120,17 @@ def parse_timestamp(value: Any) -> tuple[int | None, str, str]:
         "%Y年%m月%d日 %H:%M",
         "%Y-%m-%d",
     )
+    local_tz = dt.datetime.now().astimezone().tzinfo or dt.timezone.utc
     for pattern in formats:
         try:
-            parsed = dt.datetime.strptime(raw, pattern).replace(tzinfo=dt.timezone.utc)
+            parsed = dt.datetime.strptime(raw, pattern).replace(tzinfo=local_tz)
             return int(parsed.timestamp()), parsed.astimezone().strftime("%Y-%m-%d %H:%M:%S"), "exact"
         except ValueError:
             pass
     try:
         parsed = dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=dt.timezone.utc)
+            parsed = parsed.replace(tzinfo=local_tz)
         return int(parsed.timestamp()), parsed.astimezone().strftime("%Y-%m-%d %H:%M:%S"), "exact"
     except ValueError:
         return None, raw[:80], "unknown"
@@ -263,6 +264,10 @@ def quoted_source(text: str) -> str:
     return "\n".join("> " + line if line else ">" for line in text.splitlines())
 
 
+def safe_heading(value: str) -> str:
+    return re.sub(r"[\r\n\x00-\x1f]+", " ", value).replace("#", "\\#").strip()[:160]
+
+
 def build_candidate(
     records: list[dict[str, Any]],
     *,
@@ -273,6 +278,7 @@ def build_candidate(
     input_name: str,
     captured_at: str,
 ) -> str:
+    title = safe_heading(title) or "朋友圈来源候选"
     included = records if scope == "all" else [record for record in records if record["is_self"]]
     month_counts = Counter(
         record["datetime"][:7]
@@ -311,7 +317,7 @@ def build_candidate(
         f"- 纳入记录：{len(included)}",
         f"- 原始去重后记录：{len(records)}",
         f"- 时间范围：{date_range}",
-        f"- 作者：{', '.join(f'{name}（{count}）' for name, count in author_counts.most_common()) or 'unknown'}",
+        f"- 作者：{', '.join(f'{safe_heading(name)}（{count}）' for name, count in author_counts.most_common()) or 'unknown'}",
         f"- 媒体记录：{sum(1 for record in included if record['media_count'])}",
         f"- 月份分布：{', '.join(f'{month}（{count}）' for month, count in sorted(month_counts.items())) or 'unknown'}",
         "",
@@ -330,7 +336,7 @@ def build_candidate(
         label = record["datetime"] if record["datetime"] != "unknown" else "unknown time"
         body.extend(
             [
-                f"### {index}. {label} · {record['author_name']}",
+                f"### {index}. {label} · {safe_heading(record['author_name'])}",
                 "",
                 f"<!-- source_record_id: {record['source_record_id']} -->",
                 f"- 媒体数量：{record['media_count']}",
@@ -367,9 +373,12 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
     for output in (normalized_path, manifest_path, candidate_path):
         if output.resolve() == input_resolved:
             raise ValueError("输出不能覆盖输入")
+        if output.exists():
+            raise ValueError(f"输出已存在，拒绝覆盖：{output}")
 
+    normalized_records = records if args.include_nonself else included
     normalized_text = "".join(
-        json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n" for record in records
+        json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n" for record in normalized_records
     )
     write_text_atomic(normalized_path, normalized_text)
     title = args.title.strip() or "朋友圈来源候选"
@@ -407,7 +416,11 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
         "media_records": sum(1 for record in included if record["media_count"]),
         "authors": sorted({record["author_name"] for record in included}),
         "files": {
-            "normalized_jsonl": {"name": normalized_path.name, "sha256": sha256_file(normalized_path)},
+            "normalized_jsonl": {
+                "name": normalized_path.name,
+                "sha256": sha256_file(normalized_path),
+                "records": len(normalized_records),
+            },
             "candidate_markdown": {"name": candidate_path.name, "sha256": sha256_file(candidate_path)},
         },
     }

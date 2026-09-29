@@ -1,6 +1,6 @@
-# obsidian-ai-project-management v0.2.0
+# obsidian-ai-project-management v0.2.1
 
-Version: `0.2.0` (`v0.2.0`).
+Version: `0.2.1` (`v0.2.1`).
 
 ## Included
 
@@ -18,6 +18,10 @@ Version: `0.2.0` (`v0.2.0`).
   unreviewed Obsidian candidate generation.
 - GitHub Moments exporter capability and license boundary documented without
   bundling third-party extraction or decryption code.
+- Owner-only normalized output by default, explicit non-owner opt-in, and
+  collision-safe staging that refuses to overwrite existing output files.
+- Background synthesis instructions requiring dated record citations and a
+  separate unreviewed knowledge candidate.
 - GitHub Actions checks for repository hygiene and Anthropic's pinned Agent
   Skills validator.
 

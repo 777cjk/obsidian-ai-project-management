@@ -42,6 +42,9 @@ class MomentsCandidateTests(unittest.TestCase):
             manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["duplicates_removed"], 1)
             self.assertEqual(manifest["self_records"], 1)
+            normalized = (output / "moments.normalized.jsonl").read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(normalized), 1)
+            self.assertEqual(json.loads(normalized[0])["is_self"], True)
             candidate = (output / "朋友圈-来源候选.md").read_text(encoding="utf-8")
             self.assertIn("在上海拍了一组人像", candidate)
             self.assertNotIn("周末去看展", candidate)
@@ -66,6 +69,35 @@ class MomentsCandidateTests(unittest.TestCase):
             manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["scope"], "all")
             self.assertEqual(manifest["records_included"], 2)
+
+    def test_atlasoin_moments_shape_and_existing_outputs(self):
+        payload = {
+            "account": {"nickname": "小七"},
+            "moments": [
+                {"id": "post-1", "content": "用官方备份导出的自发朋友圈。", "publish_time": 1710000000000, "images": []}
+            ],
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "moments.json"
+            output = root / "staging"
+            source.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            result = self._run(source, output)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["records_included"], 1)
+            rerun = self._run(source, output)
+            self.assertEqual(rerun.returncode, 2)
+            self.assertIn("拒绝覆盖", rerun.stdout)
+
+    def test_generic_author_named_me_is_not_assumed_self(self):
+        payload = {"moments": [{"id": "1", "nickname": "我", "content": "not enough evidence", "time": 1}]}
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "moments.json"
+            source.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            result = self._run(source, root / "staging")
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("没有可纳入候选", result.stdout)
 
     def test_symlink_input_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
