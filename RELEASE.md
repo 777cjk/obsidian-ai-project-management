@@ -1,6 +1,6 @@
-# obsidian-ai-project-management v0.2.2
+# obsidian-ai-project-management v0.2.3
 
-Version: `0.2.2` (`v0.2.2`).
+Version: `0.2.3` (`v0.2.3`).
 
 ## Included
 
@@ -16,8 +16,9 @@ Version: `0.2.2` (`v0.2.2`).
 - Dependency-free WeChat Moments JSON/JSONL staging adapter with owner-only
   filtering, deduplication, private normalized output, SHA-256 manifest, and
   unreviewed Obsidian candidate generation.
-- GitHub Moments exporter capability and license boundary documented without
-  bundling third-party extraction or decryption code.
+- GitHub Moments exporter findings refreshed: the historical Apache-2.0 pin is
+  distinguished from the current license-unverified HEAD; its decryptor uses
+  pre-acquired keys, and no third-party extraction or decryption code is bundled.
 - Owner-only normalized output by default, explicit non-owner opt-in, and
   collision-safe staging that refuses to overwrite existing output files.
 - Unattributed records, including the companion bridge's `未知作者`

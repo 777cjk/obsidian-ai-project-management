@@ -38,7 +38,7 @@ WeChat Moments source research (no code bundled):
 - [LC044/WeChatMsg](https://github.com/LC044/WeChatMsg) (README claims MIT; no verified license file in the checked branch; research reference only)
 - [qwe11223/wechat-exporter-mac](https://github.com/qwe11223/wechat-exporter-mac) (MIT; external macOS chat exporter, not a bundled Moments connector)
 - [yipeng641/WechatExporter](https://github.com/yipeng641/WechatExporter) (closed-source product documentation; external option only)
-- [drriguz/wechat_sns_export](https://github.com/drriguz/wechat_sns_export) (no verified license file; parser reference only)
+- [drriguz/wechat_sns_export](https://github.com/drriguz/wechat_sns_export) (current [`master` HEAD `241f69d`](https://github.com/drriguz/wechat_sns_export/commit/241f69dcca230e1894780c1d2c175b7417c47abb) has no verified license; its database decryptor consumes externally acquired keys and the README points to a separate running-process key scanner. Historical commit [`5562ce2`](https://github.com/drriguz/wechat_sns_export/commit/5562ce228c096c754d4d19d26adb483c34661a76) had Apache-2.0; no code is bundled.)
 - [BlueMatthew/WechatExporter](https://github.com/BlueMatthew/WechatExporter) (GPL-2.0; external compatibility reference only)
 - [caigee-cmd/wechat-insight](https://github.com/caigee-cmd/wechat-insight) (MIT; separate local chat-analysis layer)
 
