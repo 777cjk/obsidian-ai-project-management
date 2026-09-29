@@ -1,6 +1,6 @@
-# obsidian-ai-project-management v0.1.1
+# obsidian-ai-project-management v0.2.0
 
-Version: `0.1.1` (`v0.1.1`).
+Version: `0.2.0` (`v0.2.0`).
 
 ## Included
 
@@ -13,6 +13,11 @@ Version: `0.1.1` (`v0.1.1`).
 - Updated reuse guidance for the official Feishu CLI, Obsidian Web Clipper,
   and read-only configured Obsidian MCP access.
 - Host adaptation, installation, and rollback instructions.
+- Dependency-free WeChat Moments JSON/JSONL staging adapter with owner-only
+  filtering, deduplication, private normalized output, SHA-256 manifest, and
+  unreviewed Obsidian candidate generation.
+- GitHub Moments exporter capability and license boundary documented without
+  bundling third-party extraction or decryption code.
 - GitHub Actions checks for repository hygiene and Anthropic's pinned Agent
   Skills validator.
 
@@ -29,5 +34,6 @@ checks its SHA-256, and runs it as part of `scripts/verify.sh`.
 ## Scope
 
 This release contains the portable Skill and its documentation. It does not
-include a configured user's Obsidian vault, credentials, or platform OAuth
-connections. The sibling ingest adapter is maintained and installed separately.
+include a configured user's Obsidian vault, credentials, platform OAuth
+connections, raw WeChat databases, or a running-process extractor. The sibling
+ingest adapter is maintained and installed separately.

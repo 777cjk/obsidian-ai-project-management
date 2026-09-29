@@ -18,6 +18,7 @@ The package is designed to work with Codex, Claude Code, and other agents that s
 - temporary four-file change packages for high-impact work;
 - a source → candidate → reviewed asset → application knowledge pipeline;
 - an optional source-ingest adapter for local files, Feishu, Baidu Netdisk, and document parsers;
+- a dependency-free WeChat Moments JSON/JSONL adapter that stages private, unreviewed Obsidian candidates;
 - provenance, freshness, contradiction, and token-budget retrieval guidance;
 - privacy and host-adaptation guidance;
 - source attribution for Spec Kit, OpenSpec, Superpowers, and Agent Skills.
@@ -59,6 +60,22 @@ For source collection, read [references/ingest-adapter.md](references/ingest-ada
 and use the sibling `obsidian-knowledge-ingest` adapter. It stages manifests and
 candidates without changing the canonical vault. Connector OAuth, parser
 dependencies, and platform scopes remain explicit host configuration.
+
+For a user's own exported WeChat Moments, use the portable adapter:
+
+```bash
+python3 scripts/moments_to_candidate.py \
+  --input /path/to/moments.json \
+  --output-dir /path/to/private-staging/wechat-moments \
+  --self-name "Your nickname"
+```
+
+It accepts exported JSON or JSONL and emits a normalized JSONL file, a
+SHA-256 manifest, and an unreviewed candidate Markdown note. See
+[references/wechat-moments.md](references/wechat-moments.md) for the current
+GitHub source matrix and the boundary between an export tool and this Skill.
+Raw WeChat databases, running-process extraction, and automatic canonical
+vault writes are intentionally outside the portable package.
 
 Validate a checkout with:
 

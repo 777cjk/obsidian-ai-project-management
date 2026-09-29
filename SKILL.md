@@ -51,6 +51,14 @@ When the task is knowledge collection, synthesis, or retrieval, use the source-t
 
 When the task includes local folders, Feishu, Baidu Netdisk, or document parsing, use the optional [references/ingest-adapter.md](references/ingest-adapter.md). It describes the reusable connector stack and the `obsidian-knowledge-ingest` staging adapter. Source manifests and candidates are inputs to this skill; they are never a replacement for the canonical project card or reviewed knowledge assets.
 
+When the task includes a user's own WeChat Moments archive, read
+[references/wechat-moments.md](references/wechat-moments.md) and use
+`scripts/moments_to_candidate.py`. The adapter accepts an exported
+`moments.json`/JSONL, defaults to the account owner's posts, writes private
+staging files, and keeps the result unreviewed until a host checkpoint. It is
+an import layer, not a live WeChat reader or database decrypter; keep source
+acquisition and any platform-specific exporter outside this portable Skill.
+
 ## Canonical Card Contract
 
 At minimum, a project card has `project_card: true`, `status`, `category`, `path`, `next_action`, `resume_command`, and `last_updated`. When available, also use `current_stage`, `weekly_outcome`, `evidence`, `evidence_status`, `blocker`, `focus`, and decision-gate fields. Keep `next_action` identical to the card's handoff sentence.

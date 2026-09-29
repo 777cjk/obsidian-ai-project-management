@@ -31,5 +31,16 @@ under its own license and terms.
 - [microsoft/markitdown](https://github.com/microsoft/markitdown) (MIT; optional parser fallback)
 - [ocrmypdf/OCRmyPDF](https://github.com/ocrmypdf/OCRmyPDF) (MPL-2.0; separate optional worker)
 
+WeChat Moments source research (no code bundled):
+
+- [Atlasoin/wechat-moments-exporter](https://github.com/Atlasoin/wechat-moments-exporter) (no verified license file; research reference only)
+- [lisoleg/wechat-moments-exporter](https://github.com/lisoleg/wechat-moments-exporter) (README claims MIT; no verified license file; research reference only)
+- [LC044/WeChatMsg](https://github.com/LC044/WeChatMsg) (README claims MIT; no verified license file in the checked branch; research reference only)
+- [qwe11223/wechat-exporter-mac](https://github.com/qwe11223/wechat-exporter-mac) (MIT; external macOS chat exporter, not a bundled Moments connector)
+- [yipeng641/WechatExporter](https://github.com/yipeng641/WechatExporter) (closed-source product documentation; external option only)
+- [drriguz/wechat_sns_export](https://github.com/drriguz/wechat_sns_export) (no verified license file; parser reference only)
+- [BlueMatthew/WechatExporter](https://github.com/BlueMatthew/WechatExporter) (GPL-2.0; external compatibility reference only)
+- [caigee-cmd/wechat-insight](https://github.com/caigee-cmd/wechat-insight) (MIT; separate local chat-analysis layer)
+
 Check the current upstream repository before copying code, documentation, or
 assets into a derivative project.
