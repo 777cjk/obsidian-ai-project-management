@@ -100,7 +100,17 @@ class MomentsCandidateTests(unittest.TestCase):
             self.assertIn("没有可纳入候选", result.stdout)
 
     def test_unattributed_moments_require_assume_self(self):
-        payload = {"moments": [{"id": "unknown-1", "content": "synthetic unknown-author record"}]}
+        payload = {
+            "moments": [
+                {"id": "unknown-1", "content": "synthetic missing-author record"},
+                {
+                    "id": "unknown-2",
+                    "author_name": "未知作者",
+                    "is_self": False,
+                    "content": "synthetic bridge-placeholder record",
+                },
+            ]
+        }
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = root / "moments.json"
@@ -113,13 +123,13 @@ class MomentsCandidateTests(unittest.TestCase):
             included = self._run(source, root / "assumed-staging", "--assume-self")
             self.assertEqual(included.returncode, 0, included.stderr)
             summary = json.loads(included.stdout)
-            self.assertEqual(summary["records_included"], 1)
-            record = json.loads(
-                (root / "assumed-staging" / "moments.normalized.jsonl")
-                .read_text(encoding="utf-8")
-                .splitlines()[0]
-            )
-            self.assertTrue(record["is_self"])
+            self.assertEqual(summary["records_included"], 2)
+            normalized = root / "assumed-staging" / "moments.normalized.jsonl"
+            records = [
+                json.loads(line) for line in normalized.read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertEqual(len(records), 2)
+            self.assertTrue(all(record["is_self"] for record in records))
 
     def test_assume_self_does_not_override_a_known_other_author(self):
         payload = {
