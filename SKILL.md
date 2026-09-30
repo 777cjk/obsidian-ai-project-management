@@ -148,6 +148,63 @@ This is the first real functional slice. Semantic search, reranking, graph
 expansion, richer parsers, and platform connectors remain optional layers
 behind the same receipt contract.
 
+## First-run Profile Scan
+
+When the goal is to understand a person's useful documents, background, work,
+and active projects, use `scripts/profile_scan.py` as the single bounded entry
+point. It does not ask a zero-based user to enumerate every path:
+
+```text
+plan -> inspect private scope preview -> collect --confirm-scope
+-> review profile/project candidates -> context
+```
+
+`plan` discovers common Desktop/Documents/Downloads/Pictures/Obsidian and AI
+workspace roots, applies a denylist for credentials, `.env`, SSH/Keychain,
+browser/WeChat data, caches, binaries, and oversized files, and writes only a
+private `scan-plan.json`. `collect` requires the explicit scope confirmation,
+then reuses the immutable raw/candidate ingest path. Markdown, text, JSON/CSV,
+YAML/HTML and DOCX/PPTX/XLSX visible text are supported locally. PDF/image
+files are previewed as metadata-only until an optional parser adapter is
+configured.
+
+The generated personal-background and project-map files remain unreviewed
+candidates. Only `review-profile --decision approve --confirm` creates the
+stable private `knowledge/profile-context.md`, `knowledge/project-map.md`, and
+`knowledge/profile-context.json`. A later Codex turn may read the read-only
+`context` command output with the current project card. It must keep explicit
+source statements, inferred patterns, contradictions, and unknowns separate;
+the profile pack is context, not canonical project state.
+
+After `collect`, the agent should read the emitted source candidates in
+batches, synthesize only claims supported by those sources, and improve the
+profile/project-map candidate text with precise source references. Path-based
+category labels and first-person sentence matches are only discovery hints;
+the scanner itself does not understand a person's biography or project status.
+Show the proposed profile for a human accuracy check before running the
+approval command. Do not claim to have understood sources that were not read.
+
+If the user wants future Codex sessions to load this context automatically,
+offer the separate user-level integration step only after the profile is
+approved:
+
+```bash
+python3 scripts/profile_scan.py install-codex-context \
+  --workspace /path/to/private-staging/profile --confirm
+```
+
+This appends a managed, reversible instruction block to `~/.codex/AGENTS.md`
+that points at the approved local files; existing rules are preserved and
+backed up. Removal is explicit:
+
+```bash
+python3 scripts/profile_scan.py remove-codex-context --confirm
+```
+
+This entry point is deliberately bounded: it does not read passwords, browser
+profiles, Keychain, raw WeChat databases, or the whole disk, and it never moves
+or edits source files or writes the canonical Vault automatically.
+
 When the task includes local folders, Feishu, Baidu Netdisk, or document parsing, use the optional [references/ingest-adapter.md](references/ingest-adapter.md). It describes the reusable connector stack and the `obsidian-knowledge-ingest` staging adapter. Source manifests and candidates are inputs to this skill; they are never a replacement for the canonical project card or reviewed knowledge assets.
 
 When the task includes a user's own WeChat Moments archive, read

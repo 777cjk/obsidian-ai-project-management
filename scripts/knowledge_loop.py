@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import io
 import json
 import os
 import re
@@ -22,16 +23,20 @@ import secrets
 import shutil
 import sys
 import tempfile
+import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Iterable
 
 
 SCHEMA_VERSION = 1
 MAX_FILE_BYTES = 20 * 1024 * 1024
+MAX_OFFICE_EXPANDED_BYTES = 40 * 1024 * 1024
 TEXT_SUFFIXES = {
     ".c", ".cc", ".cpp", ".csv", ".go", ".h", ".html", ".htm", ".java",
     ".js", ".json", ".md", ".markdown", ".org", ".py", ".rst", ".rs",
     ".sh", ".sql", ".toml", ".ts", ".tsv", ".txt", ".xml", ".yaml", ".yml",
+    ".docx", ".pptx", ".xlsx",
 }
 DEFAULT_EXCLUDES = {
     ".git", ".venv", "node_modules", "__pycache__", ".cache",
@@ -237,11 +242,78 @@ def read_text_file(path: Path) -> tuple[bytes, str]:
     if size > MAX_FILE_BYTES:
         raise ValueError(f"文件超过 {MAX_FILE_BYTES} bytes：{path}")
     raw = path.read_bytes()
+    if path.suffix.lower() in {".docx", ".pptx", ".xlsx"}:
+        return raw, office_document_text(raw, path.suffix.lower())
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise ValueError(f"只支持 UTF-8 文本：{path}") from exc
     return raw, text
+
+
+def office_document_text(raw: bytes, suffix: str) -> str:
+    """Extract a conservative text view from common Office Open XML files.
+
+    The original ZIP bytes remain the immutable raw snapshot. This parser is
+    intentionally dependency-free and only extracts visible XML text; it does
+    not execute macros, external links, formulas, or embedded objects.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            names = archive.namelist()
+            if sum(info.file_size for info in archive.infolist()) > MAX_OFFICE_EXPANDED_BYTES:
+                raise ValueError("Office 文档展开后超过安全解析上限")
+            if suffix == ".docx":
+                selected = [name for name in names if name == "word/document.xml"]
+            elif suffix == ".pptx":
+                selected = sorted(
+                    name for name in names
+                    if name.startswith("ppt/slides/slide") and name.endswith(".xml")
+                )
+            else:
+                shared_strings: list[str] = []
+                if "xl/sharedStrings.xml" in names:
+                    shared_root = ET.fromstring(archive.read("xl/sharedStrings.xml"))
+                    shared_strings = [
+                        " ".join(piece.strip() for piece in item.itertext() if piece.strip())
+                        for item in list(shared_root)
+                    ]
+                fragments: list[str] = []
+                for name in sorted(
+                    item for item in names
+                    if item.startswith("xl/worksheets/") and item.endswith(".xml")
+                ):
+                    sheet_root = ET.fromstring(archive.read(name))
+                    cells: list[str] = []
+                    for cell in sheet_root.iter():
+                        if cell.tag.rsplit("}", 1)[-1] != "c":
+                            continue
+                        kind = cell.attrib.get("t")
+                        values = [
+                            " ".join(piece.strip() for piece in child.itertext() if piece.strip())
+                            for child in cell
+                            if child.tag.rsplit("}", 1)[-1] in {"v", "t", "is"}
+                        ]
+                        value = " ".join(values).strip()
+                        if kind == "s" and value.isdigit() and int(value) < len(shared_strings):
+                            value = shared_strings[int(value)]
+                        if value:
+                            cells.append(value)
+                    if cells:
+                        fragments.append(" ".join(cells))
+                return "\n\n".join(fragments).strip()
+            fragments: list[str] = []
+            for name in selected:
+                try:
+                    root = ET.fromstring(archive.read(name))
+                except (KeyError, ET.ParseError) as exc:
+                    raise ValueError(f"Office XML 无法解析：{name}") from exc
+                text = " ".join(piece.strip() for piece in root.itertext() if piece.strip())
+                if text:
+                    fragments.append(text)
+            return "\n\n".join(fragments).strip()
+    except (zipfile.BadZipFile, OSError, ET.ParseError, KeyError) as exc:
+        raise ValueError("Office 文档不是有效的 OOXML 文件") from exc
 
 
 def quote(value: Any) -> str:
@@ -256,6 +328,15 @@ def fenced(text: str) -> str:
 
 
 def candidate_markdown(entry: dict[str, Any], text: str) -> str:
+    classification_reasons = entry.get("classification_reasons", [])
+    reason_lines = (
+        ["classification_reasons: []"]
+        if not classification_reasons
+        else [
+            "classification_reasons:",
+            *[f"  - {quote(reason)}" for reason in classification_reasons],
+        ]
+    )
     return "\n".join(
         [
             "---",
@@ -267,6 +348,11 @@ def candidate_markdown(entry: dict[str, Any], text: str) -> str:
             f"source_revision: {quote(entry['revision_id'])}",
             f"source_hash: {quote(entry['source_hash'])}",
             f"raw_path: {quote(entry['raw_path'])}",
+            f"source_kind: {quote(entry.get('source_kind', 'local_file'))}",
+            f"privacy_scope: {quote(entry.get('privacy_scope', 'private_staging'))}",
+            f"parser: {quote(entry.get('parser', {}).get('name', 'utf-8-fixture'))}",
+            f"category_candidate: {quote(entry.get('category_candidate', '待确认'))}",
+            *reason_lines,
             'provenance: "local_import"',
             'source_content_trust: "untrusted_data"',
             'review_status: "unreviewed"',
@@ -307,6 +393,9 @@ def knowledge_markdown(entry: dict[str, Any], text: str, summary: str | None) ->
             f"  - {quote(entry['source_id'])}",
             f"source_revision: {quote(entry['revision_id'])}",
             f"source_hash: {quote(entry['source_hash'])}",
+            f"source_kind: {quote(entry.get('source_kind', 'local_file'))}",
+            f"privacy_scope: {quote(entry.get('privacy_scope', 'private_staging'))}",
+            f"category: {quote(entry.get('category_candidate', '待确认'))}",
             'provenance: "extracted_and_reviewed"',
             'review_status: "approved"',
             'evidence_status: "verified"',
@@ -690,7 +779,18 @@ def ingest(args: argparse.Namespace) -> dict[str, Any]:
             "record_status": "active",
             "evidence_status": "verified_source_unreviewed",
             "reviewed_at": None,
-            "parser": {"name": "utf-8-fixture", "version": "1"},
+            "parser": {
+                "name": (
+                    "ooxml-visible-text"
+                    if path.suffix.lower() in {".docx", ".pptx", ".xlsx"}
+                    else "utf-8-fixture"
+                ),
+                "version": "1",
+            },
+            "source_kind": "local_file",
+            "privacy_scope": "private_staging",
+            "category_candidate": "待确认",
+            "classification_reasons": [],
         }
         if candidate_path.exists():
             existing_candidate = candidate_path.read_text(encoding="utf-8")

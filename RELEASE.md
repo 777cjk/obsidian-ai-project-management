@@ -1,6 +1,33 @@
-# obsidian-ai-project-management v0.4.3
+# obsidian-ai-project-management v0.5.0
 
-Version: `0.4.3` (`v0.4.3`).
+Version: `0.5.0` (`v0.5.0`).
+
+## Feature Changes
+
+- Added the bounded `scripts/profile_scan.py` first-run entry point for common
+  Desktop/Documents/Downloads/Pictures/Obsidian/AI workspace roots.
+- Added private scope previews, credential/cache/browser/WeChat denylist rules,
+  file and byte budgets, and an explicit `--confirm-scope` collection gate.
+- Added dependency-free visible-text extraction for DOCX, PPTX, and XLSX.
+- Added source-cited, unreviewed personal-background and project-map
+  candidates, an explicit profile approval gate, stable private
+  `profile-context` assets, and bounded read-only Codex context output.
+- Added 6 focused scanner tests covering scope preview, privacy exclusion,
+  Office text extraction, discovery-budget limits, plan tampering, replaced
+  roots, approval, and context output.
+- Hardened collection against changed scan plans, directory-root replacement,
+  and file/root identity drift between preview and collection.
+
+This release keeps the v0.4.3 source/candidate/review/query/receipt loop and
+does not claim friend-machine usefulness until a real canary is observed.
+
+The profile scanner is bounded and local: it does not read passwords, browser
+profiles, Keychain, raw WeChat databases, or the entire disk; it does not use
+cloud APIs or write canonical Obsidian notes automatically.
+
+---
+
+# Previous v0.4.3 Notes
 
 ## Patch Changes
 

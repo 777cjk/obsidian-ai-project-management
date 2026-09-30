@@ -19,6 +19,10 @@ The package is designed to work with Codex, Claude Code, and other agents that s
 - a source → candidate → reviewed asset → application knowledge pipeline;
 - a dependency-free executable `init → ingest → review → query → record-result`
   canary loop with private raw snapshots and cited receipts;
+- a bounded first-run `profile_scan.py` that discovers common document roots,
+  previews scope, excludes sensitive/cache paths, extracts text from Markdown,
+  text, JSON/CSV/YAML/HTML and common OOXML documents, and builds reviewable
+  personal-background/project-map candidates;
 - a research-backed knowledge-base methods baseline covering PARA, Zettelkasten,
   local-first vaults, hybrid retrieval, context layers, review queues, and
   graph/RAG boundaries;
@@ -36,7 +40,7 @@ standard library; the version requirement is for validation and the local
 knowledge-loop runner.
 
 ```bash
-git clone --branch v0.4.3 https://github.com/777cjk/obsidian-ai-project-management.git
+git clone --branch v0.5.0 https://github.com/777cjk/obsidian-ai-project-management.git
 cd obsidian-ai-project-management
 python3 --version
 scripts/verify.sh
@@ -70,6 +74,75 @@ acceptance:
   pass: "The result can be opened and verified"
 writeback: "checkpoint_preview"
 ```
+
+## First Run: Build Personal Context
+
+For a zero-setup friend workflow, use the bounded profile scanner. It looks
+for common document roots under the user's home directory (Desktop, Documents,
+Downloads, Pictures, Obsidian, and AI workspace), plus any explicitly supplied
+folder. It shows a private scope preview before it reads document contents.
+
+```bash
+python3 scripts/profile_scan.py plan \
+  --workspace /path/to/private-staging/profile
+python3 scripts/profile_scan.py status \
+  --workspace /path/to/private-staging/profile
+```
+
+Inspect `scan-plan.json` and its root/count summary. After the person confirms
+the scope, collect the selected sources:
+
+```bash
+python3 scripts/profile_scan.py collect \
+  --workspace /path/to/private-staging/profile \
+  --confirm-scope
+```
+
+This reuses the existing immutable raw/candidate staging loop and writes two
+unreviewed candidates: a personal-background candidate and a project-map
+candidate. It excludes credentials, `.env` files, SSH/Keychain/browser/WeChat
+data, caches, binaries, and oversized files by default. DOCX/PPTX/XLSX visible
+text is extracted locally with the standard library; PDF and image files are
+reported in the preview as metadata-only and are not parsed in this release.
+
+Read both candidate files, then approve them together:
+
+```bash
+python3 scripts/profile_scan.py review-profile \
+  --workspace /path/to/private-staging/profile \
+  --decision approve \
+  --confirm
+python3 scripts/profile_scan.py context \
+  --workspace /path/to/private-staging/profile \
+  --context-budget 12000
+```
+
+The scanner produces source-cited drafts and heuristic categories; it does not
+replace the agent's synthesis. Have Codex read the source candidates in batches,
+correct the personal background/project map using evidence, and show the draft
+for a human accuracy check before approval. To make future Codex sessions
+automatically discover the approved profile, install a managed pointer into
+the user's global Codex instructions after approval:
+
+```bash
+python3 scripts/profile_scan.py install-codex-context \
+  --workspace /path/to/private-staging/profile --confirm
+```
+
+This preserves existing `~/.codex/AGENTS.md` rules and creates a timestamped
+backup. To remove only the managed block later:
+
+```bash
+python3 scripts/profile_scan.py remove-codex-context --confirm
+```
+
+Approval creates the stable private files
+`knowledge/profile-context.md`, `knowledge/project-map.md`, and
+`knowledge/profile-context.json`. A later Codex turn should read the bounded
+`context` output together with the current canonical project card. The context
+pack contains source citations and unknowns; it does not replace a current
+project card or the user's latest instruction. The package never edits the
+original files or writes the host's canonical Obsidian Vault automatically.
 
 For source collection, read [references/ingest-adapter.md](references/ingest-adapter.md)
 and use the sibling `obsidian-knowledge-ingest` adapter. It stages manifests and
@@ -139,16 +212,18 @@ changes the manifest. A new workspace reports `init`, an ingested candidate
 reports `review`, an approved asset reports `query`, and an unrecorded query
 receipt reports `record-result`.
 
-The runner only reads an explicitly selected file or folder, keeps raw
-snapshots and candidates private, and does not modify canonical Obsidian
-notes. Check the query receipt's citations before recording an outcome; set
+The `knowledge_loop.py` runner still reads an explicitly selected file or
+folder, while `profile_scan.py` provides the bounded common-root discovery
+entry point above. Both keep raw snapshots and candidates private and do not
+modify canonical Obsidian notes. Check the query receipt's citations before recording an outcome; set
 `human-usefulness` to `useful` or `not_useful` only after a person judges the
 result. The agent can summarize and categorize selected sources into
 reviewable candidates; the runner itself preserves source text and does not
 autonomously summarize it. Keep the staging workspace separate from the
 canonical vault. Start with a small, non-sensitive folder and expand only
-after reviewing the first results. This is the minimal functional canary; the full-computer scanner,
-live-WeChat reader, semantic index, and graph backend are not silently enabled.
+after reviewing the first results. This is a bounded profile scan, not an
+unrestricted full-disk reader; the live-WeChat reader, semantic index, graph
+backend, OCR, and automatic canonical writeback are not silently enabled.
 
 For a user's own exported WeChat Moments, use the portable adapter:
 

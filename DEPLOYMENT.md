@@ -11,7 +11,7 @@ To install a published release, clone its tag and install to the host's skill
 directory:
 
 ```bash
-git clone --branch v0.4.3 https://github.com/777cjk/obsidian-ai-project-management.git
+git clone --branch v0.5.0 https://github.com/777cjk/obsidian-ai-project-management.git
 cd obsidian-ai-project-management
 python3 --version
 scripts/verify.sh
@@ -61,6 +61,35 @@ scripts/install.sh \
 
 Use the equivalent host-supported skills directory for Claude Code. The
 package itself does not edit host settings or restart an agent.
+
+## First-run profile scan
+
+After installation, start a fresh agent session and use the bounded scanner in
+the package checkout (or the installed Skill copy):
+
+```bash
+python3 scripts/profile_scan.py plan --workspace /path/to/private-staging/profile
+python3 scripts/profile_scan.py status --workspace /path/to/private-staging/profile
+python3 scripts/profile_scan.py collect \
+  --workspace /path/to/private-staging/profile --confirm-scope
+python3 scripts/profile_scan.py review-profile \
+  --workspace /path/to/private-staging/profile --decision approve --confirm
+python3 scripts/profile_scan.py context \
+  --workspace /path/to/private-staging/profile --context-budget 12000
+python3 scripts/profile_scan.py install-codex-context \
+  --workspace /path/to/private-staging/profile --confirm
+```
+
+The plan is a private preview of common document roots. The collect step is the
+only step that reads selected document contents, and it requires the explicit
+scope confirmation. Credentials, `.env`, SSH/Keychain/browser/WeChat data,
+caches, binaries, and oversized files are excluded. Source files and the
+canonical Obsidian Vault remain unchanged. Inspect and approve the profile
+candidates before letting a later Codex turn use the context pack.
+The final command appends a managed pointer to `~/.codex/AGENTS.md`, preserving
+and backing up existing instructions. It is optional and requires its own
+explicit confirmation. Remove it later with
+`python3 scripts/profile_scan.py remove-codex-context --confirm`.
 
 ## Rollback
 
