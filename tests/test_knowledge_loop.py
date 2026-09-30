@@ -12,6 +12,16 @@ SCRIPT = ROOT / "scripts" / "knowledge_loop.py"
 
 
 class KnowledgeLoopTests(unittest.TestCase):
+    def test_review_examples_use_full_ingest_path_without_reprefixing(self):
+        for document in ("README.md", "SKILL.md"):
+            text = (ROOT / document).read_text(encoding="utf-8")
+            self.assertIn('candidate_path="PASTE_ONE_FULL_CANDIDATE_PATH_HERE"', text)
+            self.assertIn('--candidate "$candidate_path"', text)
+            self.assertNotIn("--candidate candidates/", text)
+            self.assertIn("--result-observed unknown", text)
+            self.assertIn("--decision-changed unknown", text)
+            self.assertIn("--human-usefulness unknown", text)
+
     def _run(self, *args: str):
         return subprocess.run(
             [sys.executable, str(SCRIPT), *args],
@@ -71,6 +81,10 @@ class KnowledgeLoopTests(unittest.TestCase):
             entries = {entry["relative_path"]: entry for entry in manifest["entries"]}
             approved = entries["approved.md"]
             contradictory = entries["contradiction.md"]
+            self.assertEqual(
+                set(ingested["candidates"]),
+                {approved["candidate_path"], contradictory["candidate_path"]},
+            )
 
             self.assertEqual(approved["review_status"], "unreviewed")
             self.assertEqual(approved["evidence_status"], "verified_source_unreviewed")

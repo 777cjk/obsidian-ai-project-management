@@ -28,19 +28,28 @@ The package is designed to work with Codex, Claude Code, and other agents that s
 - privacy and host-adaptation guidance;
 - source attribution for Spec Kit, OpenSpec, Superpowers, and Agent Skills.
 
-## Install
+## Install From GitHub
 
-From a checked-out repository, install to an explicit host path:
+Requirements: Git and Python 3.10 or newer. The package uses only the Python
+standard library; the version requirement is for validation and the local
+knowledge-loop runner.
 
 ```bash
+git clone --branch v0.4.1 https://github.com/777cjk/obsidian-ai-project-management.git
+cd obsidian-ai-project-management
+python3 --version
+scripts/verify.sh
 scripts/install.sh \
   --target "$HOME/.codex/skills/obsidian-ai-project-management"
 ```
 
-For Claude Code, pass its supported skills directory as `--target`. To upgrade
-an existing installation, add `--replace`; the previous copy is kept in a
-timestamped backup. The installer validates the package and does not edit host
-settings or restart an agent. See [DEPLOYMENT.md](DEPLOYMENT.md) for rollback.
+For Claude Code, use
+`"$HOME/.claude/skills/obsidian-ai-project-management"` as the install target.
+If upgrading, add `--replace`; the previous copy is moved to a timestamped
+backup. The installer does not edit host configuration or restart the agent.
+After installation, start a new agent session and explicitly ask it to use
+`obsidian-ai-project-management` with one selected Markdown folder. Confirm the
+Skill is loaded before asking it to ingest personal material.
 
 Then configure the host adapter with the user's Obsidian vault root and
 project-card directory. Start with one real project card and one current
@@ -89,32 +98,43 @@ python3 scripts/knowledge_loop.py ingest \
 Review one emitted file under `candidates/`, then approve it explicitly:
 
 ```bash
+candidate_path="PASTE_ONE_FULL_CANDIDATE_PATH_HERE"
 python3 scripts/knowledge_loop.py review \
   --workspace /path/to/private-staging \
-  --candidate candidates/<candidate-file>.md \
+  --candidate "$candidate_path" \
   --decision approve \
   --summary "人工确认的可复用结论"
 ```
+
+Replace the variable value with one complete path from the `candidates` array
+printed by `ingest` (for example, `candidates/<filename>.md`). Do not prepend
+`candidates/` a second time.
 
 Query approved assets and record whether the result was useful:
 
 ```bash
 python3 scripts/knowledge_loop.py query \
   --workspace /path/to/private-staging \
-  --query "要查的问题"
+  --query "来源正文中出现的关键词"
 python3 scripts/knowledge_loop.py record-result \
   --workspace /path/to/private-staging \
   --receipt receipts/query-<id>.json \
   --project "当前项目" \
   --result "实际采用后的结果" \
-  --result-observed yes \
-  --decision-changed yes \
-  --human-usefulness useful
+  --result-observed unknown \
+  --decision-changed unknown \
+  --human-usefulness unknown
 ```
 
 The runner only reads an explicitly selected file or folder, keeps raw
 snapshots and candidates private, and does not modify canonical Obsidian
-notes. It is the minimal functional canary; the full-computer scanner,
+notes. Check the query receipt's citations before recording an outcome; set
+`human-usefulness` to `useful` or `not_useful` only after a person judges the
+result. The agent can summarize and categorize selected sources into
+reviewable candidates; the runner itself preserves source text and does not
+autonomously summarize it. Keep the staging workspace separate from the
+canonical vault. Start with a small, non-sensitive folder and expand only
+after reviewing the first results. This is the minimal functional canary; the full-computer scanner,
 live-WeChat reader, semantic index, and graph backend are not silently enabled.
 
 For a user's own exported WeChat Moments, use the portable adapter:
@@ -133,15 +153,14 @@ GitHub source matrix and the boundary between an export tool and this Skill.
 Raw WeChat databases, running-process extraction, and automatic canonical
 vault writes are intentionally outside the portable package.
 
-Validate a checkout with:
+Validate a checkout with the included command:
 
 ```bash
-python3 /path/to/skill-creator/scripts/quick_validate.py .
+scripts/verify.sh
 ```
 
-GitHub Actions runs the repository checks and Anthropic's upstream Agent
-Skills validator on pushes and pull requests. The workflow pins the upstream
-validator source to a commit and verifies its SHA-256 before execution.
+GitHub Actions additionally runs Anthropic's upstream Agent Skills validator
+from a pinned source and verifies its SHA-256.
 
 For a dependency-free local check and an explicit host install with a
 timestamped replacement backup, use [DEPLOYMENT.md](DEPLOYMENT.md):

@@ -86,6 +86,13 @@ init -> ingest (explicit file/folder) -> review (approve/reject/contradictory)
 -> query (keyword + citations) -> record-result (application receipt)
 ```
 
+The runner requires Python 3.10 or newer and uses only the standard library.
+After `ingest`, it prints the relative paths of new or still-unreviewed
+candidates. Read those candidates as source material, synthesize and categorize
+them with explicit source citations, and keep the result unreviewed until a
+person approves it. The runner preserves source text; it does not itself
+generate a summary or decide the category.
+
 The runner copies UTF-8 text sources into a private raw snapshot, writes an
 unreviewed candidate with a source hash, promotes only an explicitly approved
 candidate into `knowledge/`, and writes JSON/Markdown query receipts under
@@ -101,9 +108,10 @@ python3 scripts/knowledge_loop.py ingest \
   --workspace /path/to/private-staging \
   --source /path/to/explicit/source-folder \
   --label friend-vault
+candidate_path="PASTE_ONE_FULL_CANDIDATE_PATH_HERE"
 python3 scripts/knowledge_loop.py review \
   --workspace /path/to/private-staging \
-  --candidate candidates/<candidate-file>.md \
+  --candidate "$candidate_path" \
   --decision approve \
   --summary "人工确认的可复用结论"
 python3 scripts/knowledge_loop.py query \
@@ -114,10 +122,13 @@ python3 scripts/knowledge_loop.py record-result \
   --receipt receipts/query-<id>.json \
   --project "当前项目" \
   --result "实际采用后的结果" \
-  --result-observed yes \
-  --decision-changed yes \
-  --human-usefulness useful
+  --result-observed unknown \
+  --decision-changed unknown \
+  --human-usefulness unknown
 ```
+
+Set `candidate_path` to a complete path from `ingest` output; it already
+starts with `candidates/`.
 
 This is the first real functional slice. Semantic search, reranking, graph
 expansion, richer parsers, and platform connectors remain optional layers

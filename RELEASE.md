@@ -1,6 +1,6 @@
-# obsidian-ai-project-management v0.4.0
+# obsidian-ai-project-management v0.4.1
 
-Version: `0.4.0` (`v0.4.0`).
+Version: `0.4.1` (`v0.4.1`).
 
 ## Included
 
@@ -25,6 +25,9 @@ Version: `0.4.0` (`v0.4.0`).
 - Dependency-free `scripts/knowledge_loop.py` canary loop: explicit local
   ingest, immutable raw snapshot, unreviewed candidate, explicit review,
   deterministic keyword query with citations, and application result receipt.
+- First-run installation instructions now cover cloning a published tag,
+  Python prerequisites, host skill paths, and loading the Skill in a fresh
+  agent session; ingest output lists candidate paths directly.
 - Owner-only normalized output by default, explicit non-owner opt-in, and
   collision-safe staging that refuses to overwrite existing output files.
 - Unattributed records, including the companion bridge's `未知作者`
@@ -39,11 +42,10 @@ Version: `0.4.0` (`v0.4.0`).
 
 ```bash
 scripts/verify.sh
-python3 /path/to/skill-creator/scripts/quick_validate.py .
 ```
 
-The CI workflow additionally fetches the upstream validator at a pinned commit,
-checks its SHA-256, and runs it as part of `scripts/verify.sh`.
+The CI workflow fetches the upstream validator at a pinned commit, checks its
+SHA-256, and runs it as part of `scripts/verify.sh`.
 
 ## Scope
 

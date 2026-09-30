@@ -305,6 +305,7 @@ def ingest(args: argparse.Namespace) -> dict[str, Any]:
     current_by_id = {entry["source_id"]: entry for entry in manifest["entries"]}
     counts = {"new": 0, "modified": 0, "unchanged": 0, "skipped": 0}
     errors: list[dict[str, str]] = []
+    candidate_paths: set[str] = set()
 
     for path, relative, root in source_files(source, DEFAULT_EXCLUDES | set(args.exclude)):
         if path.suffix.lower() not in TEXT_SUFFIXES:
@@ -321,6 +322,8 @@ def ingest(args: argparse.Namespace) -> dict[str, Any]:
         previous = current_by_id.get(source_id)
         if previous and previous.get("source_hash") == source_hash:
             counts["unchanged"] += 1
+            if previous.get("review_status") == "unreviewed":
+                candidate_paths.add(previous["candidate_path"])
             continue
         if previous:
             counts["modified"] += 1
@@ -370,6 +373,7 @@ def ingest(args: argparse.Namespace) -> dict[str, Any]:
                 raise ValueError(f"拒绝覆盖已有候选：{candidate_path}")
         else:
             atomic_write(candidate_path, candidate_markdown(entry, text).encode("utf-8"))
+        candidate_paths.add(str(relative_candidate))
         manifest["entries"] = [item for item in manifest["entries"] if item["source_id"] != source_id]
         manifest["entries"].append(entry)
         current_by_id[source_id] = entry
@@ -380,6 +384,7 @@ def ingest(args: argparse.Namespace) -> dict[str, Any]:
         "source": str(source),
         "counts": counts,
         "entries": len(manifest["entries"]),
+        "candidates": sorted(candidate_paths),
         "errors": errors,
         "next": "review",
     }

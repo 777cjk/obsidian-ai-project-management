@@ -1,8 +1,29 @@
 # Local Deployment
 
 This repository is a portable Agent Skill. Its deployment unit is the skill
-directory itself; it does not need a Python runtime, a database, an API key, or
-an Obsidian vault to pass package validation.
+directory itself. Python 3.10 or newer is required to install and validate the
+package and to run the local knowledge loop. No third-party Python packages, a
+database, an API key, or an Obsidian vault are required.
+
+## Get A Release
+
+To install a published release, clone its tag and install to the host's skill
+directory:
+
+```bash
+git clone --branch v0.4.1 https://github.com/777cjk/obsidian-ai-project-management.git
+cd obsidian-ai-project-management
+python3 --version
+scripts/verify.sh
+scripts/install.sh \
+  --target "$HOME/.codex/skills/obsidian-ai-project-management"
+```
+
+For Claude Code, use
+`"$HOME/.claude/skills/obsidian-ai-project-management"` as the target. After
+installation, start a new agent session and ask it explicitly to use
+`obsidian-ai-project-management`. The installer does not modify host settings
+or restart an active agent.
 
 ## Verify a checkout
 
