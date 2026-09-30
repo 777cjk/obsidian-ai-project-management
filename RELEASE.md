@@ -1,6 +1,20 @@
-# obsidian-ai-project-management v0.4.1
+# obsidian-ai-project-management v0.4.2
 
-Version: `0.4.1` (`v0.4.1`).
+Version: `0.4.2` (`v0.4.2`).
+
+## What Changed
+
+- Added read-only `status` and `next` commands so a first-time user can see
+  whether to initialize, ingest, review, query, or record an application
+  result without changing the workspace.
+- Hardened the local loop against source/workspace overlap, stale source
+  records, ambiguous scopes, unbounded snippets, partial ingest, and lost
+  application history.
+- Added a dated public GitHub and X/Twitter research snapshot with explicit
+  adoption and deferral decisions.
+
+The clean-room friend-vault canary remains the human usefulness gate for this
+release; local tests do not promote it to a product-success claim.
 
 ## Included
 

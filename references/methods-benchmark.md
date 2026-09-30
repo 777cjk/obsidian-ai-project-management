@@ -106,8 +106,9 @@ added behind the same interfaces later.
 - GitHub star counts and README feature lists are discovery evidence, not proof
   of quality, safety, or user adoption.
 - The research used public GitHub/official documentation and Jina-readable
-  pages on 2026-09-30. X/Twitter and private community threads were not treated
-  as evidence because no authenticated source was available.
+  pages on 2026-09-30. Public X/Twitter posts are tracked separately as
+  community signals in `references/community-research-2026-09-30.md`; they are
+  not treated as technical proof of a workflow.
 - No source above proves that a friend's actual vault will be useful. That still
   requires a clean-room canary with a real question, citations, and a human
   usefulness judgment.

@@ -48,6 +48,7 @@ Use progressive disclosure:
 Do not load the whole vault by default. Older reports are for resolving a current conflict, not routine context.
 
 When the task is knowledge collection, synthesis, or retrieval, use the source-to-asset pipeline in [references/knowledge-pipeline.md](references/knowledge-pipeline.md). Preserve original sources, keep AI extraction in a candidate state until reviewed, and cite vault-relative evidence in durable assets. For architecture or workflow choices, use [references/methods-benchmark.md](references/methods-benchmark.md): keep Markdown and source evidence canonical, separate memory from knowledge and projects, and add semantic or graph indexes only behind a measured retrieval need.
+For current public ecosystem signals, use [references/community-research-2026-09-30.md](references/community-research-2026-09-30.md). Treat GitHub metadata and public X/Twitter posts as discovery evidence, not proof of a friend's vault usefulness.
 
 ## Knowledge-Base Operating Loop
 
@@ -99,6 +100,19 @@ candidate into `knowledge/`, and writes JSON/Markdown query receipts under
 `receipts/`. It never scans the whole computer, calls a cloud model, or writes
 the host's canonical Obsidian notes. A host may later use its checkpoint path
 to apply an approved asset.
+
+Use `status` (or its alias `next`) before touching the workspace when the
+operator is unsure which step comes next:
+
+```bash
+python3 scripts/knowledge_loop.py status --workspace /path/to/private-staging
+python3 scripts/knowledge_loop.py next --workspace /path/to/private-staging
+```
+
+These commands are strictly read-only. They do not create a missing workspace,
+repair a manifest, or update receipts. They report `init`, `ingest`, `review`,
+`query`, or `record-result` as the next action and surface all pending query
+receipts.
 
 Example:
 

@@ -25,6 +25,7 @@ The package is designed to work with Codex, Claude Code, and other agents that s
 - an optional source-ingest adapter for local files, Feishu, Baidu Netdisk, and document parsers;
 - a dependency-free WeChat Moments JSON/JSONL adapter that stages private, unreviewed Obsidian candidates;
 - provenance, freshness, contradiction, and token-budget retrieval guidance;
+- a dated GitHub and public X/Twitter community-research snapshot;
 - privacy and host-adaptation guidance;
 - source attribution for Spec Kit, OpenSpec, Superpowers, and Agent Skills.
 
@@ -35,7 +36,7 @@ standard library; the version requirement is for validation and the local
 knowledge-loop runner.
 
 ```bash
-git clone --branch v0.4.1 https://github.com/777cjk/obsidian-ai-project-management.git
+git clone --branch v0.4.2 https://github.com/777cjk/obsidian-ai-project-management.git
 cd obsidian-ai-project-management
 python3 --version
 scripts/verify.sh
@@ -81,6 +82,11 @@ what mature personal-knowledge and RAG projects actually do, which parts this
 Skill adopts, and which heavier components stay deferred until a real canary
 proves they are needed.
 
+For the latest public ecosystem comparison, read
+[references/community-research-2026-09-30.md](references/community-research-2026-09-30.md).
+GitHub stars, README claims, and public social posts are discovery signals;
+they do not replace a clean friend-vault canary.
+
 ## Run The Functional Canary
 
 The repository now contains a small runnable loop that proves the core
@@ -89,6 +95,7 @@ cloud service:
 
 ```bash
 python3 scripts/knowledge_loop.py init --workspace /path/to/private-staging
+python3 scripts/knowledge_loop.py status --workspace /path/to/private-staging
 python3 scripts/knowledge_loop.py ingest \
   --workspace /path/to/private-staging \
   --source /path/to/explicit/source-folder \
@@ -125,6 +132,12 @@ python3 scripts/knowledge_loop.py record-result \
   --decision-changed unknown \
   --human-usefulness unknown
 ```
+
+At any point, `status` is a read-only view of the next lifecycle step. The
+same result is available as `next`; neither command creates a workspace or
+changes the manifest. A new workspace reports `init`, an ingested candidate
+reports `review`, an approved asset reports `query`, and an unrecorded query
+receipt reports `record-result`.
 
 The runner only reads an explicitly selected file or folder, keeps raw
 snapshots and candidates private, and does not modify canonical Obsidian

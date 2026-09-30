@@ -380,6 +380,381 @@ class KnowledgeLoopTests(unittest.TestCase):
             )
             self.assertEqual(old_query["results"], [])
 
+    def test_overlap_and_internal_obsidian_directories_are_excluded(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            source = root / "source"
+            (source / ".obsidian").mkdir(parents=True)
+            (source / ".trash").mkdir()
+            (source / ".vscode").mkdir()
+            (source / "keep.md").write_text("保留内容\n", encoding="utf-8")
+            (source / ".obsidian" / "hidden.md").write_text("不应读取\n", encoding="utf-8")
+            (source / ".trash" / "deleted.md").write_text("不应读取\n", encoding="utf-8")
+            (source / ".vscode" / "settings.md").write_text("不应读取\n", encoding="utf-8")
+
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            ingested = self._json_stdout(
+                self._run("ingest", "--workspace", str(workspace), "--source", str(source))
+            )
+            self.assertEqual(ingested["counts"]["new"], 1)
+            manifest = json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual([entry["relative_path"] for entry in manifest["entries"]], ["keep.md"])
+
+            rejected = self._run(
+                "ingest", "--workspace", str(source), "--source", str(source)
+            )
+            self.assertEqual(rejected.returncode, 2)
+            self.assertIn("重叠", rejected.stderr)
+
+    def test_duplicate_labels_keep_distinct_source_roots_and_scope_filters(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            source_a = root / "source-a"
+            source_b = root / "source-b"
+            source_a.mkdir()
+            source_b.mkdir()
+            (source_a / "same.md").write_text("甲来源的摄影知识\n", encoding="utf-8")
+            (source_b / "same.md").write_text("乙来源的摄影知识\n", encoding="utf-8")
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            for source in (source_a, source_b):
+                self._json_stdout(
+                    self._run(
+                        "ingest", "--workspace", str(workspace), "--source", str(source),
+                        "--label", "same-label",
+                    )
+                )
+            manifest = json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(manifest["entries"]), 2)
+            self.assertEqual(len({entry["source_id"] for entry in manifest["entries"]}), 2)
+            self.assertEqual(len({entry["source_root_id"] for entry in manifest["entries"]}), 2)
+            for entry in manifest["entries"]:
+                self._json_stdout(
+                    self._run(
+                        "review", "--workspace", str(workspace), "--candidate", entry["candidate_path"],
+                        "--decision", "approve",
+                    )
+                )
+            scope = manifest["entries"][0]["source_root_id"]
+            queried = self._json_stdout(
+                self._run(
+                    "query", "--workspace", str(workspace), "--query", "摄影知识",
+                    "--scope", scope,
+                )
+            )
+            self.assertEqual(len(queried["results"]), 1)
+            self.assertEqual(queried["results"][0]["source_root_id"], scope)
+
+    def test_deleted_source_becomes_stale_and_is_not_queryable(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            source = root / "source"
+            source.mkdir()
+            (source / "keep.md").write_text("仍然保留的知识\n", encoding="utf-8")
+            (source / "gone.md").write_text("删除后不应返回的知识\n", encoding="utf-8")
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            self._json_stdout(self._run("ingest", "--workspace", str(workspace), "--source", str(source)))
+            manifest = json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))
+            for entry in manifest["entries"]:
+                self._json_stdout(
+                    self._run(
+                        "review", "--workspace", str(workspace), "--candidate", entry["candidate_path"],
+                        "--decision", "approve",
+                    )
+                )
+            (source / "gone.md").unlink()
+            updated = self._json_stdout(
+                self._run("ingest", "--workspace", str(workspace), "--source", str(source))
+            )
+            self.assertEqual(updated["counts"]["stale"], 1)
+            after = json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual([entry["relative_path"] for entry in after["entries"]], ["keep.md"])
+            stale = [entry for entry in after["history"] if entry["relative_path"] == "gone.md"]
+            self.assertEqual(len(stale), 1)
+            self.assertEqual(stale[0]["record_status"], "stale")
+            queried = self._json_stdout(
+                self._run("query", "--workspace", str(workspace), "--query", "删除后")
+            )
+            self.assertEqual(queried["results"], [])
+
+    def test_partial_ingest_is_explicit_and_strict_returns_nonzero(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            source = root / "source"
+            source.mkdir()
+            (source / "good.md").write_text("可读内容\n", encoding="utf-8")
+            (source / "broken.txt").write_bytes(b"\xff\xfe\x00")
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            partial = self._json_stdout(
+                self._run("ingest", "--workspace", str(workspace), "--source", str(source))
+            )
+            self.assertEqual(partial["status"], "partial")
+            self.assertFalse(partial["complete"])
+            self.assertEqual(len(partial["errors"]), 1)
+            strict = self._run(
+                "ingest", "--workspace", str(workspace), "--source", str(source), "--strict"
+            )
+            self.assertEqual(strict.returncode, 2)
+            self.assertIn("--strict", strict.stderr)
+
+    def test_scope_and_context_budget_are_applied_to_results(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            source_a = root / "source-a"
+            source_b = root / "source-b"
+            source_a.mkdir()
+            source_b.mkdir()
+            (source_a / "a.md").write_text("目标词 " + ("甲" * 100) + "\n", encoding="utf-8")
+            (source_b / "b.md").write_text("目标词 " + ("乙" * 100) + "\n", encoding="utf-8")
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            for source in (source_a, source_b):
+                self._json_stdout(self._run("ingest", "--workspace", str(workspace), "--source", str(source)))
+            manifest = json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))
+            for entry in manifest["entries"]:
+                self._json_stdout(self._run("review", "--workspace", str(workspace), "--candidate", entry["candidate_path"], "--decision", "approve"))
+            scope = manifest["entries"][0]["source_root_id"]
+            queried = self._json_stdout(self._run("query", "--workspace", str(workspace), "--query", "目标词", "--scope", scope, "--context-budget", "12"))
+            self.assertEqual(len(queried["results"]), 1)
+            self.assertLessEqual(sum(item["context_chars"] for item in queried["results"]), 12)
+            self.assertLessEqual(len(queried["results"][0]["snippet"]), 12)
+            receipt = json.loads((workspace / queried["receipt"]).read_text(encoding="utf-8"))
+            self.assertEqual(receipt["retrieval"]["context_chars_used"], queried["results"][0]["context_chars"])
+
+    def test_record_result_appends_application_history_and_summary_is_single(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            source = root / "source.md"
+            source.write_text("可应用的知识\n", encoding="utf-8")
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            self._json_stdout(self._run("ingest", "--workspace", str(workspace), "--source", str(source)))
+            manifest = json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))
+            reviewed = self._json_stdout(self._run("review", "--workspace", str(workspace), "--candidate", manifest["entries"][0]["candidate_path"], "--decision", "approve", "--summary", "唯一摘要标记"))
+            knowledge = (workspace / reviewed["knowledge"]).read_text(encoding="utf-8")
+            self.assertEqual(knowledge.count("唯一摘要标记"), 1)
+            queried = self._json_stdout(self._run("query", "--workspace", str(workspace), "--query", "知识"))
+            for project, result in (("第一次", "第一次结果"), ("第二次", "第二次结果")):
+                self._json_stdout(self._run("record-result", "--workspace", str(workspace), "--receipt", queried["receipt"], "--project", project, "--result", result, "--human-usefulness", "useful"))
+            receipt_path = workspace / queried["receipt"]
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(receipt["application_events"]), 2)
+            self.assertEqual(receipt["application_events"][0]["result"], "第一次结果")
+            self.assertEqual(receipt["application_events"][1]["result"], "第二次结果")
+            markdown = receipt_path.with_suffix(".md").read_text(encoding="utf-8")
+            self.assertIn("Event 1", markdown)
+            self.assertIn("Event 2", markdown)
+            self.assertIn("第一次结果", markdown)
+            self.assertIn("第二次结果", markdown)
+
+    def test_query_rejects_non_positive_limit_and_context_budget(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            source = root / "source.md"
+            source.write_text("可检索内容\n", encoding="utf-8")
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            self._json_stdout(self._run("ingest", "--workspace", str(workspace), "--source", str(source)))
+            manifest = json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))
+            self._json_stdout(self._run("review", "--workspace", str(workspace), "--candidate", manifest["entries"][0]["candidate_path"], "--decision", "approve"))
+            for option, value, message in (("--limit", "0", "limit 必须至少为 1"), ("--context-budget", "0", "context-budget 必须至少为 1")):
+                rejected = self._run("query", "--workspace", str(workspace), "--query", "内容", option, value)
+                self.assertEqual(rejected.returncode, 2)
+                self.assertIn(message, rejected.stderr)
+
+    def test_status_and_next_are_read_only_and_follow_the_closed_loop(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            source = root / "source.md"
+            source.write_text("# 摄影知识\n\n上海人像摄影实践。\n", encoding="utf-8")
+
+            before = set(root.rglob("*"))
+            uninitialized = self._json_stdout(self._run("status", "--workspace", str(workspace)))
+            self.assertEqual(uninitialized["stage"], "uninitialized")
+            self.assertEqual(uninitialized["next"], "init")
+            self.assertFalse(workspace.exists())
+            next_uninitialized = self._json_stdout(self._run("next", "--workspace", str(workspace)))
+            self.assertEqual(next_uninitialized, uninitialized)
+            self.assertEqual(set(root.rglob("*")), before)
+
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            after_init = {path: path.read_bytes() for path in workspace.rglob("*") if path.is_file()}
+            empty = self._json_stdout(self._run("status", "--workspace", str(workspace)))
+            self.assertEqual(empty["stage"], "needs_ingest")
+            self.assertEqual(empty["next"], "ingest")
+            self.assertEqual(
+                {path: path.read_bytes() for path in workspace.rglob("*") if path.is_file()},
+                after_init,
+            )
+
+            ingested = self._json_stdout(
+                self._run("ingest", "--workspace", str(workspace), "--source", str(source))
+            )
+            self.assertEqual(ingested["entries"], 1)
+            pending_review = self._json_stdout(self._run("next", "--workspace", str(workspace)))
+            self.assertEqual(pending_review["stage"], "needs_review")
+            self.assertEqual(pending_review["next"], "review")
+            self.assertEqual(pending_review["counts"]["active_unreviewed"], 1)
+            manifest = json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))
+            candidate = manifest["entries"][0]["candidate_path"]
+            self._json_stdout(
+                self._run(
+                    "review", "--workspace", str(workspace), "--candidate", candidate,
+                    "--decision", "approve",
+                )
+            )
+
+            ready = self._json_stdout(self._run("status", "--workspace", str(workspace)))
+            self.assertEqual(ready["stage"], "ready_to_query")
+            self.assertEqual(ready["next"], "query")
+            first = self._json_stdout(
+                self._run("query", "--workspace", str(workspace), "--query", "摄影")
+            )
+            awaiting = self._json_stdout(self._run("status", "--workspace", str(workspace)))
+            self.assertEqual(awaiting["stage"], "awaiting_result")
+            self.assertEqual(awaiting["next"], "record-result")
+            self.assertEqual(awaiting["pending_receipts"], [first["receipt"]])
+
+            recorded = self._json_stdout(
+                self._run(
+                    "record-result", "--workspace", str(workspace), "--receipt", first["receipt"],
+                    "--human-usefulness", "useful",
+                )
+            )
+            self.assertEqual(recorded["human_usefulness"], "useful")
+            ready_again = self._json_stdout(self._run("next", "--workspace", str(workspace)))
+            self.assertEqual(ready_again["stage"], "ready_to_query")
+            self.assertEqual(ready_again["next"], "query")
+
+    def test_status_scans_all_pending_receipts_and_accepts_not_useful(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            source = root / "source.md"
+            source.write_text("可复用知识\n", encoding="utf-8")
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            self._json_stdout(self._run("ingest", "--workspace", str(workspace), "--source", str(source)))
+            manifest = json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))
+            self._json_stdout(
+                self._run(
+                    "review", "--workspace", str(workspace),
+                    "--candidate", manifest["entries"][0]["candidate_path"], "--decision", "approve",
+                )
+            )
+            first = self._json_stdout(self._run("query", "--workspace", str(workspace), "--query", "知识"))
+            second = self._json_stdout(self._run("query", "--workspace", str(workspace), "--query", "知识"))
+            awaiting = self._json_stdout(self._run("status", "--workspace", str(workspace)))
+            self.assertEqual(awaiting["stage"], "awaiting_result")
+            self.assertEqual(set(awaiting["pending_receipts"]), {first["receipt"], second["receipt"]})
+            self.assertEqual(awaiting["counts"]["pending_receipts"], 2)
+
+            self._json_stdout(
+                self._run(
+                    "record-result", "--workspace", str(workspace), "--receipt", second["receipt"],
+                    "--human-usefulness", "useful",
+                )
+            )
+            one_pending = self._json_stdout(self._run("status", "--workspace", str(workspace)))
+            self.assertEqual(one_pending["stage"], "awaiting_result")
+            self.assertEqual(one_pending["pending_receipts"], [first["receipt"]])
+
+            self._json_stdout(
+                self._run(
+                    "record-result", "--workspace", str(workspace), "--receipt", first["receipt"],
+                    "--human-usefulness", "not_useful",
+                )
+            )
+            ready = self._json_stdout(self._run("status", "--workspace", str(workspace)))
+            self.assertEqual(ready["stage"], "ready_to_query")
+            self.assertEqual(ready["next"], "query")
+
+    def test_status_fails_closed_on_bad_manifest_or_receipt_without_writing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            manifest_path = workspace / "manifest.json"
+            manifest_path.write_text("{broken\n", encoding="utf-8")
+            before = {path: path.read_bytes() for path in workspace.rglob("*") if path.is_file()}
+            bad_manifest = self._run("status", "--workspace", str(workspace))
+            self.assertEqual(bad_manifest.returncode, 2)
+            self.assertIn("manifest", bad_manifest.stderr)
+            self.assertEqual(
+                {path: path.read_bytes() for path in workspace.rglob("*") if path.is_file()},
+                before,
+            )
+
+            valid_workspace = root / "valid-workspace"
+            self._json_stdout(self._run("init", "--workspace", str(valid_workspace)))
+            bad_receipt = valid_workspace / "receipts" / "query-bad.json"
+            bad_receipt.write_text("{}\n", encoding="utf-8")
+            valid_before = {path: path.read_bytes() for path in valid_workspace.rglob("*") if path.is_file()}
+            rejected = self._run("next", "--workspace", str(valid_workspace))
+            self.assertEqual(rejected.returncode, 2)
+            self.assertIn("有效的 query receipt", rejected.stderr)
+            self.assertEqual(
+                {path: path.read_bytes() for path in valid_workspace.rglob("*") if path.is_file()},
+                valid_before,
+            )
+
+    def test_status_accepts_legacy_v1_receipt_with_top_level_usefulness(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            source = root / "source.md"
+            source.write_text("旧版回执兼容知识\n", encoding="utf-8")
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            self._json_stdout(self._run("ingest", "--workspace", str(workspace), "--source", str(source)))
+            manifest = json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))
+            self._json_stdout(
+                self._run(
+                    "review", "--workspace", str(workspace),
+                    "--candidate", manifest["entries"][0]["candidate_path"], "--decision", "approve",
+                )
+            )
+            legacy = workspace / "receipts" / "query-legacy.json"
+            legacy.write_text(
+                json.dumps(
+                    {
+                        "query_receipt_version": 1,
+                        "query": "旧版回执兼容知识",
+                        "application": {"project": "legacy", "result_observed": "yes", "decision_changed": "no"},
+                        "human_usefulness": "useful",
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            observed = self._json_stdout(self._run("status", "--workspace", str(workspace)))
+            self.assertEqual(observed["stage"], "ready_to_query")
+            self.assertEqual(observed["next"], "query")
+            self.assertEqual(observed["pending_receipts"], [])
+
+    def test_reingest_same_physical_source_with_new_label_updates_in_place(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            source = root / "source"
+            source.mkdir()
+            (source / "same.md").write_text("同一物理来源\n", encoding="utf-8")
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            self._json_stdout(
+                self._run("ingest", "--workspace", str(workspace), "--source", str(source), "--label", "first")
+            )
+            self._json_stdout(
+                self._run("ingest", "--workspace", str(workspace), "--source", str(source), "--label", "second")
+            )
+            manifest = json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(manifest["entries"]), 1)
+            self.assertEqual(manifest["entries"][0]["label"], "second")
+            observed = self._json_stdout(self._run("status", "--workspace", str(workspace)))
+            self.assertEqual(observed["duplicates"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
