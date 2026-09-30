@@ -1,6 +1,6 @@
-# obsidian-ai-project-management v0.2.3
+# obsidian-ai-project-management v0.4.0
 
-Version: `0.2.3` (`v0.2.3`).
+Version: `0.4.0` (`v0.4.0`).
 
 ## Included
 
@@ -19,6 +19,12 @@ Version: `0.2.3` (`v0.2.3`).
 - GitHub Moments exporter findings refreshed: the historical Apache-2.0 pin is
   distinguished from the current license-unverified HEAD; its decryptor uses
   pre-acquired keys, and no third-party extraction or decryption code is bundled.
+- Research-backed knowledge-base methods baseline covering PARA, Zettelkasten,
+  local-first Markdown vaults, hybrid retrieval, context layers, review queues,
+  query receipts, and explicit GraphRAG/vector-database boundaries.
+- Dependency-free `scripts/knowledge_loop.py` canary loop: explicit local
+  ingest, immutable raw snapshot, unreviewed candidate, explicit review,
+  deterministic keyword query with citations, and application result receipt.
 - Owner-only normalized output by default, explicit non-owner opt-in, and
   collision-safe staging that refuses to overwrite existing output files.
 - Unattributed records, including the companion bridge's `未知作者`
@@ -41,7 +47,7 @@ checks its SHA-256, and runs it as part of `scripts/verify.sh`.
 
 ## Scope
 
-This release contains the portable Skill and its documentation. It does not
+This release contains the portable Skill, its executable local canary loop, and its documentation. It does not
 include a configured user's Obsidian vault, credentials, platform OAuth
 connections, raw WeChat databases, or a running-process extractor. The sibling
 ingest adapter is maintained and installed separately.

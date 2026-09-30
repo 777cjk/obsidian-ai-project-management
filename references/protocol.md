@@ -41,6 +41,35 @@ failure_reason: none
 next_route: "continue | adjust | stop | wait_for_human | reconverge"
 ```
 
+## Query Receipt
+
+Use this receipt for knowledge-base retrieval and synthesis. It records the
+retrieval path without turning a search result into canonical knowledge.
+
+```yaml
+query_receipt_version: 1
+query: ""
+scope: ""
+retrieval:
+  modes: [keyword]
+  context_budget: ""
+sources_selected: []
+citations: []
+missing_evidence: []
+contradictions: []
+freshness_checked: false
+human_usefulness: unknown
+application:
+  project: null
+  result_observed: unknown
+  decision_changed: unknown
+```
+
+Allowed retrieval modes are `keyword`, `semantic`, `rerank`, and `graph`.
+Only record a mode when it actually ran. `human_usefulness`,
+`result_observed`, and `decision_changed` stay `unknown` until observed by a
+person or a reproducible application result.
+
 ## Agent Output Contract
 
 End a project turn with:

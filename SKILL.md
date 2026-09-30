@@ -47,7 +47,81 @@ Use progressive disclosure:
 
 Do not load the whole vault by default. Older reports are for resolving a current conflict, not routine context.
 
-When the task is knowledge collection, synthesis, or retrieval, use the source-to-asset pipeline in [references/knowledge-pipeline.md](references/knowledge-pipeline.md). Preserve original sources, keep AI extraction in a candidate state until reviewed, and cite vault-relative evidence in durable assets.
+When the task is knowledge collection, synthesis, or retrieval, use the source-to-asset pipeline in [references/knowledge-pipeline.md](references/knowledge-pipeline.md). Preserve original sources, keep AI extraction in a candidate state until reviewed, and cite vault-relative evidence in durable assets. For architecture or workflow choices, use [references/methods-benchmark.md](references/methods-benchmark.md): keep Markdown and source evidence canonical, separate memory from knowledge and projects, and add semantic or graph indexes only behind a measured retrieval need.
+
+## Knowledge-Base Operating Loop
+
+Treat the knowledge base as a feedback system rather than a folder tree or a
+vector database:
+
+```text
+explicit scope -> immutable source -> candidate -> review/contradiction check
+-> linked knowledge or first-party memory -> bounded retrieval -> cited answer
+-> application result -> correction or freshness update
+```
+
+Use this retrieval ladder in order:
+
+1. Clarify the question and project scope.
+2. Recall with deterministic full-text/keyword search.
+3. Add semantic recall only when wording mismatch makes it useful.
+4. Rerank by authority, freshness, evidence status, and project relevance.
+5. Add graph/context expansion only for multi-hop or global questions.
+6. Assemble a bounded context pack and emit a query receipt with citations,
+   missing evidence, and the human outcome when known.
+
+Do not silently move notes because an embedding is similar. Do not promote a
+candidate into memory, a project card, or a reviewed asset without the relevant
+human/evidence gate. `next`/doctor-style status may recommend the next step,
+but it must remain read-only until the host checkpoint is explicitly invoked.
+
+## Executable Closed Loop
+
+For a clean local canary, the package includes a dependency-free runner:
+`scripts/knowledge_loop.py`. It makes the lifecycle observable instead of
+leaving it as prompt guidance:
+
+```text
+init -> ingest (explicit file/folder) -> review (approve/reject/contradictory)
+-> query (keyword + citations) -> record-result (application receipt)
+```
+
+The runner copies UTF-8 text sources into a private raw snapshot, writes an
+unreviewed candidate with a source hash, promotes only an explicitly approved
+candidate into `knowledge/`, and writes JSON/Markdown query receipts under
+`receipts/`. It never scans the whole computer, calls a cloud model, or writes
+the host's canonical Obsidian notes. A host may later use its checkpoint path
+to apply an approved asset.
+
+Example:
+
+```bash
+python3 scripts/knowledge_loop.py init --workspace /path/to/private-staging
+python3 scripts/knowledge_loop.py ingest \
+  --workspace /path/to/private-staging \
+  --source /path/to/explicit/source-folder \
+  --label friend-vault
+python3 scripts/knowledge_loop.py review \
+  --workspace /path/to/private-staging \
+  --candidate candidates/<candidate-file>.md \
+  --decision approve \
+  --summary "人工确认的可复用结论"
+python3 scripts/knowledge_loop.py query \
+  --workspace /path/to/private-staging \
+  --query "要查的问题"
+python3 scripts/knowledge_loop.py record-result \
+  --workspace /path/to/private-staging \
+  --receipt receipts/query-<id>.json \
+  --project "当前项目" \
+  --result "实际采用后的结果" \
+  --result-observed yes \
+  --decision-changed yes \
+  --human-usefulness useful
+```
+
+This is the first real functional slice. Semantic search, reranking, graph
+expansion, richer parsers, and platform connectors remain optional layers
+behind the same receipt contract.
 
 When the task includes local folders, Feishu, Baidu Netdisk, or document parsing, use the optional [references/ingest-adapter.md](references/ingest-adapter.md). It describes the reusable connector stack and the `obsidian-knowledge-ingest` staging adapter. Source manifests and candidates are inputs to this skill; they are never a replacement for the canonical project card or reviewed knowledge assets.
 

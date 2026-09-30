@@ -17,6 +17,11 @@ The package is designed to work with Codex, Claude Code, and other agents that s
 - a portable context package and result receipt;
 - temporary four-file change packages for high-impact work;
 - a source → candidate → reviewed asset → application knowledge pipeline;
+- a dependency-free executable `init → ingest → review → query → record-result`
+  canary loop with private raw snapshots and cited receipts;
+- a research-backed knowledge-base methods baseline covering PARA, Zettelkasten,
+  local-first vaults, hybrid retrieval, context layers, review queues, and
+  graph/RAG boundaries;
 - an optional source-ingest adapter for local files, Feishu, Baidu Netdisk, and document parsers;
 - a dependency-free WeChat Moments JSON/JSONL adapter that stages private, unreviewed Obsidian candidates;
 - provenance, freshness, contradiction, and token-budget retrieval guidance;
@@ -60,6 +65,57 @@ For source collection, read [references/ingest-adapter.md](references/ingest-ada
 and use the sibling `obsidian-knowledge-ingest` adapter. It stages manifests and
 candidates without changing the canonical vault. Connector OAuth, parser
 dependencies, and platform scopes remain explicit host configuration.
+
+For architecture decisions, read
+[references/methods-benchmark.md](references/methods-benchmark.md). It records
+what mature personal-knowledge and RAG projects actually do, which parts this
+Skill adopts, and which heavier components stay deferred until a real canary
+proves they are needed.
+
+## Run The Functional Canary
+
+The repository now contains a small runnable loop that proves the core
+knowledge lifecycle without installing a vector database or sending files to a
+cloud service:
+
+```bash
+python3 scripts/knowledge_loop.py init --workspace /path/to/private-staging
+python3 scripts/knowledge_loop.py ingest \
+  --workspace /path/to/private-staging \
+  --source /path/to/explicit/source-folder \
+  --label friend-vault
+```
+
+Review one emitted file under `candidates/`, then approve it explicitly:
+
+```bash
+python3 scripts/knowledge_loop.py review \
+  --workspace /path/to/private-staging \
+  --candidate candidates/<candidate-file>.md \
+  --decision approve \
+  --summary "人工确认的可复用结论"
+```
+
+Query approved assets and record whether the result was useful:
+
+```bash
+python3 scripts/knowledge_loop.py query \
+  --workspace /path/to/private-staging \
+  --query "要查的问题"
+python3 scripts/knowledge_loop.py record-result \
+  --workspace /path/to/private-staging \
+  --receipt receipts/query-<id>.json \
+  --project "当前项目" \
+  --result "实际采用后的结果" \
+  --result-observed yes \
+  --decision-changed yes \
+  --human-usefulness useful
+```
+
+The runner only reads an explicitly selected file or folder, keeps raw
+snapshots and candidates private, and does not modify canonical Obsidian
+notes. It is the minimal functional canary; the full-computer scanner,
+live-WeChat reader, semantic index, and graph backend are not silently enabled.
 
 For a user's own exported WeChat Moments, use the portable adapter:
 
