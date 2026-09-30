@@ -36,7 +36,7 @@ standard library; the version requirement is for validation and the local
 knowledge-loop runner.
 
 ```bash
-git clone --branch v0.4.2 https://github.com/777cjk/obsidian-ai-project-management.git
+git clone --branch v0.4.3 https://github.com/777cjk/obsidian-ai-project-management.git
 cd obsidian-ai-project-management
 python3 --version
 scripts/verify.sh

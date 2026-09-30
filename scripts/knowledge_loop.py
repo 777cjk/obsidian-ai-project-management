@@ -38,6 +38,7 @@ DEFAULT_EXCLUDES = {
     ".obsidian", ".trash", ".vscode",
 }
 TOKEN_PATTERN = re.compile(r"[\u4e00-\u9fff]+|[A-Za-z0-9_]+")
+APPLICATION_HISTORY_MARKER = "<!-- obsidian-ai-project-management:application-history -->"
 
 
 def utc_now() -> str:
@@ -120,7 +121,7 @@ def load_manifest(workspace: Path) -> dict[str, Any]:
         raise ValueError("workspace manifest 缺少 entries/history")
     if not all(isinstance(entry, dict) for entry in data["entries"]):
         raise ValueError("workspace manifest entries 必须是对象列表")
-    if not all(isinstance(entry, dict) for entry in data["history"]):
+    if not all(isinstance(event, dict) for event in data["history"]):
         raise ValueError("workspace manifest history 必须是对象列表")
     return data
 
@@ -376,6 +377,10 @@ def read_manifest_readonly(workspace: Path) -> dict[str, Any] | None:
         raise ValueError("不支持的 workspace manifest")
     if not isinstance(data.get("entries"), list) or not isinstance(data.get("history"), list):
         raise ValueError("workspace manifest 缺少 entries/history")
+    if not all(isinstance(entry, dict) for entry in data["entries"]):
+        raise ValueError("workspace manifest entries 必须是对象列表")
+    if not all(isinstance(event, dict) for event in data["history"]):
+        raise ValueError("workspace manifest history 必须是对象列表")
     return data
 
 
@@ -404,7 +409,10 @@ def read_query_receipts_readonly(workspace: Path) -> list[tuple[Path, dict[str, 
         ):
             raise ValueError(f"query receipt 不是有效的 query receipt：{receipt_path}")
         events = receipt.get("application_events")
-        if events is not None and not isinstance(events, list):
+        if events is not None and (
+            not isinstance(events, list)
+            or not all(isinstance(event, dict) for event in events)
+        ):
             raise ValueError(f"query receipt application_events 无效：{receipt_path}")
         receipts.append((receipt_path, receipt))
     receipts.sort(
@@ -964,7 +972,14 @@ def record_result(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError(f"receipt Markdown 是符号链接：{markdown_path}")
     if markdown_path.is_file():
         markdown = markdown_path.read_text(encoding="utf-8")
-        markdown = re.split(r"\n## Application(?: History)?\n", markdown, maxsplit=1)[0].rstrip()
+        if APPLICATION_HISTORY_MARKER in markdown:
+            markdown = markdown.split(APPLICATION_HISTORY_MARKER, 1)[0].rstrip()
+        else:
+            legacy_history = re.search(r"\n## Application History\n\n### Event 1\n", markdown)
+            if legacy_history:
+                markdown = markdown[:legacy_history.start()].rstrip()
+            else:
+                markdown = re.split(r"\n## Application(?: History)?\n", markdown, maxsplit=1)[0].rstrip()
         event_blocks = []
         for index, application_event in enumerate(receipt["application_events"], start=1):
             event_blocks.extend(
@@ -980,7 +995,13 @@ def record_result(args: argparse.Namespace) -> dict[str, Any]:
                     "",
                 ]
             )
-        markdown = markdown + "\n\n## Application History\n\n" + "\n".join(event_blocks)
+        markdown = (
+            markdown
+            + "\n\n"
+            + APPLICATION_HISTORY_MARKER
+            + "\n## Application History\n\n"
+            + "\n".join(event_blocks)
+        )
         atomic_write(markdown_path, markdown.encode("utf-8"))
     atomic_json(receipt_path, receipt)
     return {"receipt": str(receipt_path.relative_to(workspace)), "application": receipt["application"], "human_usefulness": receipt["human_usefulness"]}

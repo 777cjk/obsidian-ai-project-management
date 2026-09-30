@@ -550,6 +550,40 @@ class KnowledgeLoopTests(unittest.TestCase):
             self.assertIn("第一次结果", markdown)
             self.assertIn("第二次结果", markdown)
 
+    def test_record_result_preserves_heading_like_text_inside_result(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            source = root / "source.md"
+            source.write_text("可应用的知识\n", encoding="utf-8")
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            self._json_stdout(self._run("ingest", "--workspace", str(workspace), "--source", str(source)))
+            manifest = json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))
+            self._json_stdout(
+                self._run(
+                    "review", "--workspace", str(workspace),
+                    "--candidate", manifest["entries"][0]["candidate_path"], "--decision", "approve",
+                )
+            )
+            queried = self._json_stdout(self._run("query", "--workspace", str(workspace), "--query", "知识"))
+            embedded = "第一结果\n\n## Application History\n\n嵌入标题"
+            self._json_stdout(
+                self._run(
+                    "record-result", "--workspace", str(workspace), "--receipt", queried["receipt"],
+                    "--result", embedded, "--human-usefulness", "useful",
+                )
+            )
+            self._json_stdout(
+                self._run(
+                    "record-result", "--workspace", str(workspace), "--receipt", queried["receipt"],
+                    "--result", "第二结果", "--human-usefulness", "useful",
+                )
+            )
+            markdown = (workspace / queried["receipt"]).with_suffix(".md").read_text(encoding="utf-8")
+            self.assertEqual(markdown.count("## Application History"), 2)
+            self.assertIn(embedded, markdown)
+            self.assertIn("第二结果", markdown)
+
     def test_query_rejects_non_positive_limit_and_context_budget(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -700,6 +734,39 @@ class KnowledgeLoopTests(unittest.TestCase):
                 {path: path.read_bytes() for path in valid_workspace.rglob("*") if path.is_file()},
                 valid_before,
             )
+
+    def test_status_fails_closed_on_structurally_invalid_manifest_and_events(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "workspace"
+            self._json_stdout(self._run("init", "--workspace", str(workspace)))
+            manifest_path = workspace / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["entries"] = [1]
+            manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+            rejected_manifest = self._run("status", "--workspace", str(workspace))
+            self.assertEqual(rejected_manifest.returncode, 2)
+            self.assertIn("entries", rejected_manifest.stderr)
+
+            manifest["entries"] = []
+            manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+            bad_receipt = workspace / "receipts" / "query-events.json"
+            bad_receipt.write_text(
+                json.dumps(
+                    {
+                        "query_receipt_version": 1,
+                        "query": "结构损坏",
+                        "application": {},
+                        "application_events": [1],
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            rejected_receipt = self._run("next", "--workspace", str(workspace))
+            self.assertEqual(rejected_receipt.returncode, 2)
+            self.assertIn("application_events", rejected_receipt.stderr)
 
     def test_status_accepts_legacy_v1_receipt_with_top_level_usefulness(self):
         with tempfile.TemporaryDirectory() as temp:

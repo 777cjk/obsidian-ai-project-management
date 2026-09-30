@@ -1,6 +1,16 @@
-# obsidian-ai-project-management v0.4.2
+# obsidian-ai-project-management v0.4.3
 
-Version: `0.4.2` (`v0.4.2`).
+Version: `0.4.3` (`v0.4.3`).
+
+## Patch Changes
+
+- `status` and `next` now fail closed when manifest entries/history contain
+  non-object values, or when query application history contains malformed
+  events.
+- Markdown application history uses an internal marker so a result containing
+  `## Application History` is preserved when later results are appended.
+
+This patch supersedes v0.4.2 without rewriting its published tag.
 
 ## What Changed
 
