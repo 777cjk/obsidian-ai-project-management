@@ -6,5 +6,5 @@
 - [x] Clarify which work the AI Skill performs and which work the runner does.
 - [x] Bump version and prepare release notes.
 - [x] Run source and isolated installed-copy verification.
-- [ ] Push the release commit, wait for GitHub Actions, then publish v0.4.1.
+- [x] Push the release commit, wait for GitHub Actions, then publish v0.4.1.
 - [ ] Complete a friend-run Vault canary and record human usefulness.

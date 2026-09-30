@@ -1,6 +1,6 @@
 # Verification receipt: first-run onboarding
 
-Status: local source and installed-copy verification complete; GitHub publication pending.
+Status: v0.4.1 published and verified; friend-run Vault canary remains pending.
 
 ## Local verification
 
@@ -17,8 +17,15 @@ Status: local source and installed-copy verification complete; GitHub publicatio
 
 ## Remote publication
 
-Pending: record the release commit, successful GitHub Actions run, pushed
-`v0.4.1` tag, and GitHub Release URL after they are verified.
+- Release commit: `c57ebc83b2f62dc60b8100fa9867d802d936d833`.
+- GitHub Actions Verify Skill run `36679720070` passed for that exact commit:
+  https://github.com/777cjk/obsidian-ai-project-management/actions/runs/36679720070
+- Pushed annotated tag `v0.4.1` resolves to the same commit.
+- Published GitHub Release:
+  https://github.com/777cjk/obsidian-ai-project-management/releases/tag/v0.4.1
+- A fresh shallow clone of the tag passed all 19 tests and the official
+  validator; its isolated install passed the same checks and contained no
+  `.git` metadata.
 
 ## External user gate
 
